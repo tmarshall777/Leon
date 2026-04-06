@@ -1,0 +1,35 @@
+name: Daily Backup
+
+on:
+  schedule:
+    # Runs daily at 2am Eastern (7am UTC)
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup credentials
+        run: |
+          git config --global user.name "Leon"
+          git config --global user.email "leon@valhalla.local"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
+      - name: Backup workspace files
+        run: |
+          cd ${{ github.workspace }}
+          
+          # Backup each file
+          for f in $(find . -type f ! -path './.git/*' ! -path './.github/*' ! -name 'backup.yml' ! -name '*.pyc' ! -name '__pycache__*' ! -name '*.md'); do
+            if [ -f "$f" ]; then
+              content=$(base64 -w0 "$f")
+              git add "$f"
+              git commit -m "Backup: $f" --allow-empty 2>/dev/null || true
+            fi
+          done
+          
+          git push origin main 2>/dev/null || echo "No changes to push"
