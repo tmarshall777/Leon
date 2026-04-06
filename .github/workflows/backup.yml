@@ -1,8 +1,6 @@
 name: Daily Backup
 
 on:
-  push:
-    branches: [main]
   schedule:
     # Runs daily at 2am Eastern (7am UTC)
     - cron: '0 7 * * *'
@@ -15,8 +13,19 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Setup git
+        run: |
+          git config --global user.name "Leon"
+          git config --global user.email "leon@valhalla.local"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
       - name: Backup workspace files
         run: |
           cd ${{ github.workspace }}
-          echo "Backup test ran at $(date)" >> test_output.txt
-          cat test_output.txt
+          for f in $(find . -type f ! -path './.git/*' ! -path './.github/*' ! -name '*.pyc' ! -name '__pycache__*'); do
+            if [ -f "$f" ]; then
+              git add "$f"
+              git commit -m "Backup: $f" --allow-empty 2>/dev/null || true
+            fi
+          done
+          git push origin main 2>/dev/null || echo "No changes to push"
